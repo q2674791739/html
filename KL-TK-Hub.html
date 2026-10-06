@@ -171,6 +171,19 @@
     letter-spacing: 0.3px;
   }
 
+  /* ═══ 卡片网格布局 ═══ */
+  .cards-grid{
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  @media (min-width: 768px){
+    .cards-grid{
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
   /* ═══ 统计卡片 ═══ */
   .stat-card{
     position: relative;
@@ -350,7 +363,7 @@
     .stat-number{font-size: 52px}
     .hero-title{font-size: 26px}
   }
-</style>
+ </style>
 </head>
 <body>
 
@@ -379,27 +392,51 @@
     </div>
     <div class="hero-sub">Real-time execution counter</div>
 
-    <div class="stat-card">
-      <div class="stat-label">
-        <div class="stat-label-icon"></div>
-        <span>烤或死.lua 执行次数</span>
-      </div>
-      <div class="stat-value">
-        <div class="stat-number" id="count">--</div>
-        <div class="stat-unit">次</div>
+    <!-- 卡片网格 -->
+    <div class="cards-grid">
+      
+      <!-- 烤或死 -->
+      <div class="stat-card">
+        <div class="stat-label">
+          <div class="stat-label-icon"></div>
+          <span>烤或死.lua 执行次数</span>
+        </div>
+        <div class="stat-value">
+          <div class="stat-number" id="count-bake">--</div>
+          <div class="stat-unit">次</div>
+        </div>
+        <div class="status-bar">
+          <div class="status-left">
+            <div class="status-dot loading" id="statusDot-bake"></div>
+            <span id="statusText-bake">正在连接...</span>
+          </div>
+          <button class="refresh-btn" onclick="loadSingleCount('bake')">刷新</button>
+        </div>
       </div>
 
-      <div class="status-bar">
-        <div class="status-left">
-          <div class="status-dot loading" id="statusDot"></div>
-          <span id="statusText">正在连接...</span>
+      <!-- 彩虹朋友 -->
+      <div class="stat-card">
+        <div class="stat-label">
+          <div class="stat-label-icon" style="background: var(--neon-pink); box-shadow: 0 0 8px var(--neon-pink);"></div>
+          <span>彩虹朋友.lua 执行次数</span>
         </div>
-        <button class="refresh-btn" onclick="loadCount()">刷新</button>
+        <div class="stat-value">
+          <div class="stat-number" id="count-rainbow">--</div>
+          <div class="stat-unit">次</div>
+        </div>
+        <div class="status-bar">
+          <div class="status-left">
+            <div class="status-dot loading" id="statusDot-rainbow"></div>
+            <span id="statusText-rainbow">正在连接...</span>
+          </div>
+          <button class="refresh-btn" onclick="loadSingleCount('rainbow')">刷新</button>
+        </div>
       </div>
+
     </div>
   </div>
 
-  <!-- ═══ 信息页（占位，等你告诉我放什么）═══ -->
+  <!-- ═══ 信息页（占位）═══ -->
   <div class="page" id="page-info">
     <div class="hero-title">
       <span class="gradient">信息</span>
@@ -421,9 +458,23 @@
 <script>
 // ═══ 配置（Abacus）═══
 const NAMESPACE = 'kl-tk-hub';
-const KEY = 'kaohuosi_loads';
-const API = `https://abacus.jasoncameron.dev/get/${NAMESPACE}/${KEY}`;
 const REFRESH_MS = 20000;
+
+// 定义所有脚本的 key 和界面元素 ID
+const SCRIPTS = {
+  bake: {
+    key: 'bake_or_die_loads',
+    countEl: 'count-bake',
+    dotEl: 'statusDot-bake',
+    txtEl: 'statusText-bake'
+  },
+  rainbow: {
+    key: 'rainbow_friends_loads',
+    countEl: 'count-rainbow',
+    dotEl: 'statusDot-rainbow',
+    txtEl: 'statusText-rainbow'
+  }
+};
 
 // ═══ 页面切换 ═══
 document.querySelectorAll('.tab').forEach(tab => {
@@ -436,23 +487,27 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
-// ═══ 统计加载 ═══
-async function loadCount(){
-  const el = document.getElementById('count');
-  const dot = document.getElementById('statusDot');
-  const txt = document.getElementById('statusText');
+// ═══ 单个统计加载 ═══
+async function loadSingleCount(type){
+  const config = SCRIPTS[type];
+  if(!config) return;
+
+  const el = document.getElementById(config.countEl);
+  const dot = document.getElementById(config.dotEl);
+  const txt = document.getElementById(config.txtEl);
+  const api = `https://abacus.jasoncameron.dev/get/${NAMESPACE}/${config.key}`;
 
   dot.className = 'status-dot loading';
   txt.textContent = '正在获取数据...';
 
   try{
-    const r = await fetch(API);
+    const r = await fetch(api);
     if(!r.ok) throw new Error('HTTP ' + r.status);
     const data = await r.json();
 
     // Abacus 返回格式: { value: 数字 } 或 { count: 数字 }
     const num = data.value ?? data.count ?? 0;
-    animateCount(num);
+    animateCount(num, config.countEl);
 
     dot.className = 'status-dot ok';
     txt.textContent = '已更新 · ' + new Date().toLocaleTimeString('zh-CN');
@@ -462,9 +517,15 @@ async function loadCount(){
   }
 }
 
+// ═══ 全部加载 ═══
+function loadAllCounts(){
+  loadSingleCount('bake');
+  loadSingleCount('rainbow');
+}
+
 // ═══ 数字动画 ═══
-function animateCount(target){
-  const el = document.getElementById('count');
+function animateCount(target, elementId){
+  const el = document.getElementById(elementId);
   const start = parseInt(el.textContent.replace(/,/g,'')) || 0;
   if(start === target){
     el.textContent = target.toLocaleString();
@@ -486,8 +547,8 @@ function animateCount(target){
 }
 
 // ═══ 启动 ═══
-loadCount();
-setInterval(loadCount, REFRESH_MS);
+loadAllCounts();
+setInterval(loadAllCounts, REFRESH_MS);
 </script>
 
 </body>
